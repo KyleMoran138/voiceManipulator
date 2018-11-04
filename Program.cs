@@ -81,6 +81,7 @@ namespace voiceManipulator {
         EnableWordTimeOffsets = true
       }, RecognitionAudio.FromFile(FilePath));
       Cli.Verbose("Data retreved.");
+      Cli.Verbose(lastResponse.ToString());
       return true;
     }
 
@@ -122,6 +123,7 @@ namespace voiceManipulator {
       var result = lastResponse.Results[0].Alternatives[0];
       var returnValue = new {transcript = result.Transcript, confidence = result.Confidence, words = result.Words};
       if(returnValue.confidence > 0.9 && returnValue.transcript != "" && returnValue.words.Count >= 1)
+        Cli.Debug(returnValue.ToString());
         return returnValue;
       return null;
     }
@@ -192,7 +194,7 @@ namespace voiceManipulator {
 
         }
     }*/
-    
+
   }
 }
 
