@@ -30,11 +30,6 @@ namespace voiceManipulator {
     private static SpeechClient SpeechClient = null;
     private static Google.Cloud.Speech.V1.RecognizeResponse lastResponse;
 
-    /**
-      * To use the application there must be a file path set.
-      *
-    */
-
     public static void Main(String[] args) {
       Cli console = new Cli();
       Boolean speechClientInitialized = initializeSpeechClient();
@@ -56,29 +51,6 @@ namespace voiceManipulator {
 
     }
 
-    public Program() {
-        
-    }
-
-    /*private void playSingleWord(String[] args) {
-        Int32 wordToPlay = -1;
-        if (args.Length < 2) {
-            String response = Cli.promptUser("Enter word # to play");
-
-            try {
-                wordToPlay = Int32.Parse(response.Split(' ')[0]);
-            }catch(Exception exc) {
-                Console.WriteLine("User input bad!\n"+exc.Message);
-            }
-
-            var responseData = getResponseData();
-
-            if (wordToPlay - 1 >= 0 && wordToPlay - 1 <= responseData.words.Count) {
-                playWord(responseData.words[wordToPlay - 1], filePath);
-            }
-
-        }
-    }*/
 
     // Command functions
 
@@ -100,6 +72,24 @@ namespace voiceManipulator {
       return false;
     }
 
+    public static Boolean getGoogleResponse(String[] args) {
+      Cli.Verbose("Getting goodle data...");
+      lastResponse = SpeechClient.Recognize(new RecognitionConfig() {
+        Encoding = RecognitionConfig.Types.AudioEncoding.Flac,
+        SampleRateHertz = 44100,
+        LanguageCode = "en",
+        EnableWordTimeOffsets = true
+      }, RecognitionAudio.FromFile(FilePath));
+      Cli.Verbose("Data retreved.");
+      return true;
+    }
+
+    private static Boolean setFilePath(String filePath) {
+      FilePath = filePath;
+      if (FilePath != null)
+        return true;
+      return false;
+    }
 
     //Function removed to allow .net CORE
     //public static Boolean guiFindFile(String[] args) {
@@ -126,25 +116,7 @@ namespace voiceManipulator {
     //  return true;
     //}
 
-    // Data processing functions
-    public static Boolean getGoogleResponse(String[] args) {
-      Cli.Verbose("Getting goodle data...");
-      lastResponse = SpeechClient.Recognize(new RecognitionConfig() {
-        Encoding = RecognitionConfig.Types.AudioEncoding.Flac,
-        SampleRateHertz = 44100,
-        LanguageCode = "en",
-        EnableWordTimeOffsets = true
-      }, RecognitionAudio.FromFile(FilePath));
-      Cli.Verbose("Data retreved.");
-      return true;
-    }
-
-    private static Boolean setFilePath(String filePath) {
-      FilePath = filePath;
-      if (FilePath != null)
-        return true;
-      return false;
-    }
+    /// Data processing functions
 
     public static Object getResponseData() {
       var result = lastResponse.Results[0].Alternatives[0];
@@ -201,6 +173,26 @@ namespace voiceManipulator {
       return true;
     }
 
+    /*private void playSingleWord(String[] args) {
+        Int32 wordToPlay = -1;
+        if (args.Length < 2) {
+            String response = Cli.promptUser("Enter word # to play");
+
+            try {
+                wordToPlay = Int32.Parse(response.Split(' ')[0]);
+            }catch(Exception exc) {
+                Console.WriteLine("User input bad!\n"+exc.Message);
+            }
+
+            var responseData = getResponseData();
+
+            if (wordToPlay - 1 >= 0 && wordToPlay - 1 <= responseData.words.Count) {
+                playWord(responseData.words[wordToPlay - 1], filePath);
+            }
+
+        }
+    }*/
+    
   }
 }
 
