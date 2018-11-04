@@ -50,6 +50,7 @@ namespace voiceManipulator {
       console.addCommand("filesetlocation", typeof(Program).GetMethod("setFileLocation"));
       //console.addCommand("gui", typeof(Program).GetMethod("guiFindFile"));
       console.addCommand("getdata", typeof(Program).GetMethod("getGoogleResponse"));
+      console.addCommand("setlogging", typeof(Program).GetMethod("setLoggingValue"));
 
       console.start();
 
@@ -127,14 +128,14 @@ namespace voiceManipulator {
 
     // Data processing functions
     public static Boolean getGoogleResponse(String[] args) {
-      Console.WriteLine("Getting goodle data...");
+      Cli.Verbose("Getting goodle data...");
       lastResponse = SpeechClient.Recognize(new RecognitionConfig() {
         Encoding = RecognitionConfig.Types.AudioEncoding.Flac,
         SampleRateHertz = 44100,
         LanguageCode = "en",
         EnableWordTimeOffsets = true
       }, RecognitionAudio.FromFile(FilePath));
-      Console.WriteLine("Data retreved.");
+      Cli.Verbose("Data retreved.");
       return true;
     }
 
@@ -151,6 +152,20 @@ namespace voiceManipulator {
       if(returnValue.confidence > 0.9 && returnValue.transcript != "" && returnValue.words.Count >= 1)
         return returnValue;
       return null;
+    }
+
+    public static Boolean setLoggingValue(String[] args){
+      int loggingValue;
+      if(args.Length < 2){
+        if(!Cli.promptUserInt("Enter logging level", out loggingValue)) return false;
+      }else{
+        if(!int.TryParse(args[1], out loggingValue)) return false;
+      }
+      if(Cli.setLoggingLevel(loggingValue)){
+        Console.WriteLine($"Logging level set to {loggingValue.ToString()}");
+        return true;
+      }
+      return false;
     }
 
     public static void playWord(WordInfo word, string audioFile) {
