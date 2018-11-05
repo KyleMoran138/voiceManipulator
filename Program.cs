@@ -42,10 +42,11 @@ namespace voiceManipulator {
         // Call system exit
       }
 
-      console.addCommand("filesetlocation", typeof(Program).GetMethod("setFileLocation"));
-      //console.addCommand("gui", typeof(Program).GetMethod("guiFindFile"));
+      console.addCommand("filesetpath", typeof(Program).GetMethod("setFileLocation"));
       console.addCommand("getdata", typeof(Program).GetMethod("getGoogleResponse"));
       console.addCommand("setlogging", typeof(Program).GetMethod("setLoggingValue"));
+      console.addCommand("playword", typeof(Program).GetMethod("playSingleWord"));
+      //console.addCommand("gui", typeof(Program).GetMethod("guiFindFile"));
 
       console.start();
 
@@ -80,16 +81,44 @@ namespace voiceManipulator {
         LanguageCode = "en",
         EnableWordTimeOffsets = true
       }, RecognitionAudio.FromFile(FilePath));
-      Cli.Verbose("Data retreved.");
+      Cli.Verbose("Data retreved...");
       Cli.Verbose(lastResponse.ToString());
       return true;
     }
 
-    private static Boolean setFilePath(String filePath) {
-      FilePath = filePath;
-      if (FilePath != null)
+    public static Boolean setLoggingValue(String[] args){
+      int loggingValue;
+      if(args.Length < 2){
+        if(!Cli.promptUserInt("Enter logging level", out loggingValue)) return false;
+      }else{
+        if(!int.TryParse(args[1], out loggingValue)) return false;
+      }
+      if(Cli.setLoggingLevel(loggingValue)){
+        Console.WriteLine($"Logging level set to {loggingValue.ToString()}");
         return true;
+      }
       return false;
+    }
+
+    public static Boolean processGoogleResponse(String[] args){
+      getResponseData();
+      return true;
+    }
+
+    public static void playSingleWord(String[] args) {
+      int wordToPlay = 0;
+      var responseData = getResponseData();
+      if (args.Length < 2) {
+        
+        if(!Cli.promptUserInt("Select # to play", out wordToPlay)) return;
+
+      }else{
+        if(!int.TryParse(args[1], out wordToPlay)) return;
+      }
+
+      if (wordToPlay - 1 >= 0 && wordToPlay - 1 <= responseData.words.Count) {
+        playWord(responseData.words[wordToPlay - 1], FilePath);
+      }
     }
 
     //Function removed to allow .net CORE
@@ -119,48 +148,18 @@ namespace voiceManipulator {
 
     /// Data processing functions
 
-    public static Object getResponseData() {
+    public static AudioDataFromGoogle getResponseData() {
       var result = lastResponse.Results[0].Alternatives[0];
-      var returnValue = new {transcript = result.Transcript, confidence = result.Confidence, words = result.Words};
-      if(returnValue.confidence > 0.9 && returnValue.transcript != "" && returnValue.words.Count >= 1)
-        Cli.Debug(returnValue.ToString());
-        return returnValue;
+      AudioDataFromGoogle returnValue = new AudioDataFromGoogle(result.Words, result.Transcript, result.Confidence);
+      if(returnValue.isValid) return returnValue;
       return null;
     }
 
-    public static Boolean setLoggingValue(String[] args){
-      int loggingValue;
-      if(args.Length < 2){
-        if(!Cli.promptUserInt("Enter logging level", out loggingValue)) return false;
-      }else{
-        if(!int.TryParse(args[1], out loggingValue)) return false;
-      }
-      if(Cli.setLoggingLevel(loggingValue)){
-        Console.WriteLine($"Logging level set to {loggingValue.ToString()}");
+    private static Boolean setFilePath(String filePath) {
+      FilePath = filePath;
+      if (FilePath != null)
         return true;
-      }
       return false;
-    }
-
-    public static void playWord(WordInfo word, string audioFile) {
-      var file = new AudioFileReader(audioFile);
-      var trimmed = new OffsetSampleProvider(file);
-      
-      double startTime = word.StartTime.ToTimeSpan().TotalMilliseconds;
-      double stopTime = word.EndTime.ToTimeSpan().TotalMilliseconds;
-      double playTime = stopTime - startTime;
-      if (word.Word.Length < 5 && playTime > 500) {
-        Console.WriteLine("Happened");
-        stopTime += 30;
-        startTime += 600;
-        playTime = stopTime - startTime;
-      }
-      trimmed.SkipOver = TimeSpan.FromMilliseconds(startTime);
-      trimmed.Take = TimeSpan.FromMilliseconds(playTime);
-      
-      var player = new WaveOutEvent();
-      player.Init(trimmed);
-      player.Play();
     }
 
     private static Boolean initializeSpeechClient() {
@@ -175,26 +174,49 @@ namespace voiceManipulator {
       return true;
     }
 
-    /*private void playSingleWord(String[] args) {
-        Int32 wordToPlay = -1;
-        if (args.Length < 2) {
-            String response = Cli.promptUser("Enter word # to play");
+    public static void playWord(WordInfo word, string audioFile) {
+      var file = new AudioFileReader(audioFile);
+      var trimmed = new OffsetSampleProvider(file);
+      
+      double startTime = word.StartTime.ToTimeSpan().TotalMilliseconds;
+      double stopTime = word.EndTime.ToTimeSpan().TotalMilliseconds;
+      double playTime = stopTime - startTime;
+      if (word.Word.Length < 5 && playTime > 500) {
+        Cli.Verbose("Happened");
+        stopTime += 30;
+        startTime += 600;
+        playTime = stopTime - startTime;
+      }
+      trimmed.SkipOver = TimeSpan.FromMilliseconds(startTime);
+      trimmed.Take = TimeSpan.FromMilliseconds(playTime);
+      
+      var player = new WaveOutEvent();
+      player.Init(trimmed);
+      player.Play();
+    }
 
-            try {
-                wordToPlay = Int32.Parse(response.Split(' ')[0]);
-            }catch(Exception exc) {
-                Console.WriteLine("User input bad!\n"+exc.Message);
-            }
-
-            var responseData = getResponseData();
-
-            if (wordToPlay - 1 >= 0 && wordToPlay - 1 <= responseData.words.Count) {
-                playWord(responseData.words[wordToPlay - 1], filePath);
-            }
-
-        }
-    }*/
 
   }
+
+  public class AudioDataFromGoogle{
+    public Google.Protobuf.Collections.RepeatedField<Google.Cloud.Speech.V1.WordInfo> words;
+    public string transcript;
+    public float confidence;
+    public Boolean isValid = false;
+
+    public AudioDataFromGoogle(Google.Protobuf.Collections.RepeatedField<Google.Cloud.Speech.V1.WordInfo> words, string transcript, float confidence){
+
+      if(confidence > 0.9 && transcript != "" && words.Count >= 1){
+        isValid = true;
+        this.words = words;
+        this.transcript = transcript;
+        this.confidence = confidence;
+        Cli.Debug("AudioDataFromGoogle:" + this.ToString());
+      }
+
+    }
+
+  }
+
 }
 
